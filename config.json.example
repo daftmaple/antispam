@@ -1,0 +1,6 @@
+{
+  "clientId": "insert client id here",
+  "clientSecret": "insert client secret here",
+  "channel": ["insert channels here"],
+  "botName": "insert bot name here"
+}

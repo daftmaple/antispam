@@ -1,0 +1,10 @@
+# Config file
+.config/
+
+# Build file
+build/
+
+# Dependencies
+package-lock.json
+yarn.lock
+node_modules/
