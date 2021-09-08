@@ -3,10 +3,9 @@ import path from 'path';
 
 import {
   AccessToken,
-  RefreshableAuthProvider,
-  StaticAuthProvider,
-} from 'twitch-auth';
-import { ChatClient } from 'twitch-chat-client';
+  RefreshingAuthProvider,
+} from '@twurple/auth';
+import { ChatClient } from '@twurple/chat';
 
 const clientConfig = JSON.parse(
   fs.readFileSync(path.join(process.cwd(), '.config', 'config.json'), 'utf-8'),
@@ -30,45 +29,41 @@ const tokenData = JSON.parse(
   fs.readFileSync(path.join(process.cwd(), '.config', 'tokens.json'), 'utf-8'),
 );
 
-const userlist: string[] = fs
+let userlist: string[] = fs
   .readFileSync(path.join(process.cwd(), '.config', 'users.txt'), 'utf-8')
-  .split('\n');
+  .split('\n');;
 
-const authProvider = new RefreshableAuthProvider(
-  new StaticAuthProvider(clientId, tokenData.accessToken),
+// Update every 60 minutes 
+const updateUserList = setInterval(() => {
+  userlist = fs
+    .readFileSync(path.join(process.cwd(), '.config', 'users.txt'), 'utf-8')
+    .split('\n');
+  console.log(`Loading ${userlist.length} users on banlist`);
+}, 60 * 60 * 1000);
+
+
+const authProvider = new RefreshingAuthProvider(
   {
-    clientSecret,
-    refreshToken: tokenData.refreshToken,
-    expiry:
-      tokenData.expiryTimestamp === null
-        ? null
-        : new Date(tokenData.expiryTimestamp),
-    onRefresh: async ({
-      accessToken,
-      refreshToken,
-      expiryDate,
-    }: AccessToken) => {
-      const newTokenData = {
-        accessToken,
-        refreshToken,
-        expiryTimestamp: expiryDate === null ? null : expiryDate.getTime(),
-      };
+    clientId, clientSecret,
+    onRefresh: async (tokenData: AccessToken) => {
       fs.writeFileSync(
         path.join(process.cwd(), '.config', 'tokens.json'),
-        JSON.stringify(newTokenData, null, 4),
+        JSON.stringify(tokenData, null, 4),
         'utf-8',
       );
     },
   },
+  tokenData
 );
 
-const chatClient = new ChatClient(authProvider, { channels: botChannels });
+const chatClient = new ChatClient({authProvider, channels: botChannels});
 
 chatClient.connect();
 chatClient.onConnect(() => {
   console.log(`Bot has been connected`);
   console.log(`Bot username: ${botName}`);
   console.log(`Bot version: ${botVersion}`);
+  console.log(`Loading ${userlist.length} users on banlist`);
 });
 
 chatClient.onJoin((channel, user) => {
@@ -76,12 +71,11 @@ chatClient.onJoin((channel, user) => {
 });
 
 chatClient.onMessage((channel, user, _message, msg) => {
-  // If user is sub or vip, it is unlikely for it to be the spambot
+  // If user is broadcaster/mod/vip, skip filtering
   const isOkay =
     msg.userInfo.isBroadcaster ||
     msg.userInfo.isMod ||
-    msg.userInfo.isVip ||
-    msg.userInfo.isSubscriber;
+    msg.userInfo.isVip;
   if (isOkay) return;
 
   // Otherwise, check if listed
@@ -89,7 +83,11 @@ chatClient.onMessage((channel, user, _message, msg) => {
     chatClient.ban(
       channel,
       user,
-      'Your account is listed on banlist. If you are false negatives, please send an unban request',
+      'Your account is listed on banlist. If you are false negatives, please send an unban request in order to remove this username from banlist.',
     );
   }
+});
+
+process.on('exit', () => {
+  clearInterval(updateUserList);
 });

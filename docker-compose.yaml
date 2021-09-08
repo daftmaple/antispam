@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  antispam:
+    container_name: antispam
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: antispam
+    restart: unless-stopped
+    volumes:
+      - ./.config:/usr/src/.config
