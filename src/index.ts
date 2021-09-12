@@ -3,6 +3,7 @@ import path from 'path';
 
 import { AccessToken, RefreshingAuthProvider } from '@twurple/auth';
 import { ChatClient } from '@twurple/chat';
+import { binaryIndexOf, sortArray } from './binaryArray';
 
 const clientConfig = JSON.parse(
   fs.readFileSync(path.join(process.cwd(), '.config', 'config.json'), 'utf-8'),
@@ -26,15 +27,19 @@ const tokenData = JSON.parse(
   fs.readFileSync(path.join(process.cwd(), '.config', 'tokens.json'), 'utf-8'),
 );
 
-let userBanList: string[] = fs
-  .readFileSync(path.join(process.cwd(), '.config', 'users.txt'), 'utf-8')
-  .split('\n');
+let userBanList: string[] = sortArray(
+  fs
+    .readFileSync(path.join(process.cwd(), '.config', 'users.txt'), 'utf-8')
+    .split('\n'),
+);
 
 // Update every 60 minutes
 const updateUserList = setInterval(() => {
-  userBanList = fs
-    .readFileSync(path.join(process.cwd(), '.config', 'users.txt'), 'utf-8')
-    .split('\n');
+  userBanList = sortArray(
+    fs
+      .readFileSync(path.join(process.cwd(), '.config', 'users.txt'), 'utf-8')
+      .split('\n'),
+  );
   console.log(`Loading ${userBanList.length} users on banlist`);
 }, 60 * 60 * 1000);
 
@@ -79,7 +84,7 @@ chatClient.onMessage((channel, user, _message, msg) => {
   if (userAllowList.indexOf(user) !== -1) return;
 
   // Otherwise, check if listed
-  if (userBanList.indexOf(user) !== -1) {
+  if (binaryIndexOf(userBanList, user) !== -1) {
     chatClient.ban(
       channel,
       user,
